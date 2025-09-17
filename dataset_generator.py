@@ -199,8 +199,8 @@ def generate_example(i):
     return {"prompt": prompt, "response": sql}
 
 # Generate exactly 10,000 examples
-N = 2500000
-out_path = "sql_dataset_10000.jsonl"
+N = 1000
+out_path = "data/dataset.jsonl"
 with open(out_path, "w", encoding="utf-8") as f:
     for i in range(N):
         ex = generate_example(i)
