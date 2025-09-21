@@ -124,60 +124,29 @@ You can tweak versions to match your project; `accelerate` helps with distribute
 
 ## 5) Generate the JSONL dataset
 
-This repo expects training data as JSONL (one JSON object per line). The simplest format for supervised fine-tuning / SFT is:
-
-```json
-{"prompt": "Explain recursion:", "completion": "Recursion is ..."}
-```
-
-Example small script to convert a CSV (`prompt,completion`) into `dataset.jsonl`:
-
-```python
-# generate_jsonl.py
-import csv, json, sys
-
-if len(sys.argv) < 3:
-    print("Usage: python generate_jsonl.py input.csv dataset.jsonl")
-    sys.exit(1)
-
-input_csv, out_jsonl = sys.argv[1], sys.argv[2]
-with open(input_csv, newline='', encoding='utf-8') as f_in, open(out_jsonl, 'w', encoding='utf-8') as f_out:
-    reader = csv.DictReader(f_in)
-    for row in reader:
-        # expects columns "prompt" and "completion"
-        obj = {"prompt": row["prompt"], "completion": row["completion"]}
-        f_out.write(json.dumps(obj, ensure_ascii=False) + "\n")
-print("Wrote", out_jsonl)
-```
-
-Run:
+This repo expects training data as JSONL (one JSON object per line). Run:
 
 ```bash
-python generate_jsonl.py my_data.csv dataset.jsonl
+python dataset_generator.py
 ```
 
 ---
 
-## 6) Minimal training workflow (example)
-
-This is a **generic** minimal workflow — adapt to whatever training script or trainer your repo provides.
+## 6) Training workflow (example)
 
 1. Prepare `dataset.jsonl` (see step 5).
-2. Choose a base model (e.g. a smaller open model). Make sure model size fits your GPU memory; 4-bit/QLoRA tricks require bitsandbytes and will be easier on WSL.
-3. Example (hypothetical) training call using an `accelerate`-ready training script:
 
+2. Train/Create the model:
 ```bash
 # Example: run from inside the venv
-accelerate launch train_sft.py \
-  --model_name_or_path <base-model> \
-  --train_file dataset.jsonl \
-  --output_dir ./outputs/my-run \
-  --per_device_train_batch_size 4 \
-  --num_train_epochs 3 \
-  --learning_rate 2e-4
+python train.py
 ```
 
-If your repo contains a specific training script, follow its CLI. If not, look at Hugging Face `transformers` + `accelerate` SFT examples / SFTTrainer for a drop-in trainer.
+3. Test the model:
+```bash
+# Example: run from inside the venv
+python test1.py
+```
 
 ---
 
@@ -209,6 +178,5 @@ PY
 ## 9) Final notes
 
 * This README gives a portable, reproducible start: clone, create venv, install CUDA-enabled torch, install extras, generate JSONL, then train.
-* If you want, I can tailor the README to match exact train scripts in this repo (if you paste `train.py` or point to the training script in your repo I will put exact launch commands).
 
 Happy training! 🚀
