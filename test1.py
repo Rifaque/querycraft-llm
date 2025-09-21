@@ -5,19 +5,11 @@ from model import TinyTransformer
 from config import EMBED_DIM, NUM_HEADS, NUM_LAYERS, MAX_SEQ_LEN
 import json
 
-# --- Vocabulary Reconstruction ---
+# --- Load Vocabulary ---
 with open("vocab.json") as f:
-    data = json.load(f)
-word_to_idx = data["vocab"]
+    vocab = json.load(f) # The file is the vocab dictionary
 
-vocab = {'<PAD>': 0, '<SEP>': 1}
-# Note: Add <EOS> here if you plan to retrain with it
-# vocab = {'<PAD>': 0, '<SEP>': 1, '<EOS>': 2} 
-for word in word_to_idx:
-    if word not in vocab:
-        vocab[word] = len(vocab)
-
-reverse_vocab = {idx: word for word, idx in vocab.items()}
+reverse_vocab = {int(idx): word for word, idx in vocab.items()}
 VOCAB_SIZE = len(vocab)
 
 # --- Tokenizer/Detokenizer ---
@@ -35,7 +27,7 @@ model = TinyTransformer(
     num_layers=NUM_LAYERS,
     max_seq_len=MAX_SEQ_LEN
 )
-model.load_state_dict(torch.load("querycraft_llm.pt"))
+model.load_state_dict(torch.load("llms/querycraft_llm.pt"))
 model.eval()
 
 # --- Generation Function ---
@@ -70,9 +62,8 @@ def generate_sql(prompt, max_gen_len=50, temperature=0.7):
     output_tokens = generated[0, prompt_len:].tolist()
     return detokenize(output_tokens)
 
-# --- Example Usage ---
 if __name__ == "__main__":
-    prompt = "Select all users who"
+    prompt = "Get MAX of status grouped by transaction_date from transaction"
     sql_output = generate_sql(prompt)
     print("Prompt:", prompt)
     print("Generated SQL:", sql_output)

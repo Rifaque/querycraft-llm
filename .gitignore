@@ -1,7 +1,9 @@
 __pycache__/
 venv/
 data/
+llms/
+llm-checkpoints/
 
 querycraft_llm.pt
-
+dataset.jsonl
 vocab.json

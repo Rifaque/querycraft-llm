@@ -1,4 +1,4 @@
-# train.py
+# train-from-checkpoint.py
 import os
 import torch
 import json
@@ -25,7 +25,6 @@ class SQLDataset(Dataset):
         item = self.data[idx]
         combined_text = item["prompt"] + " <SEP> " + item["response"] + " <EOS>"
         token_ids = tokenize(combined_text)
-        
         padded_ids = token_ids[:self.max_len] + [0] * (self.max_len - len(token_ids))
         input_tensor = torch.tensor(padded_ids)
         target_tensor = torch.cat((input_tensor[1:], torch.tensor([0])))
@@ -37,14 +36,13 @@ VOCAB_SIZE = get_vocab_size()
 print("VOCAB_SIZE:", VOCAB_SIZE)
 with open("vocab.json", "w") as f:
     json.dump(get_vocab(), f)
-print("Updated vocab.json saved successfully.")
 
 # --- DataLoader ---
 BATCH_SIZE = 32
 train_dataset = SQLDataset("data/dataset.jsonl")
 train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
 
-# --- Model and Optimizer ---
+# --- Model ---
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = TinyTransformer(
     vocab_size=VOCAB_SIZE,
@@ -57,14 +55,17 @@ model.to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
 criterion = torch.nn.CrossEntropyLoss(ignore_index=0)
 
-print(f"Training on {device}")
+# --- Load checkpoint ---
+checkpoint_path = "llm-checkpoints/querycraft_llm_epoch20.pt"  # <--- set your checkpoint here
+model.load_state_dict(torch.load(checkpoint_path, map_location=device))
+print(f"Resumed from checkpoint → {checkpoint_path}")
 
 # --- Mixed Precision ---
 use_amp = torch.cuda.is_available()
-scaler = torch.cuda.amp.GradScaler(enabled=use_amp)
+scaler = torch.amp.GradScaler(enabled=use_amp)
 
 # --- Training Loop ---
-NUM_EPOCHS = 50
+NUM_EPOCHS = 30  # train additional epochs after checkpoint
 for epoch in range(NUM_EPOCHS):
     model.train()
     total_loss = 0
@@ -73,7 +74,7 @@ for epoch in range(NUM_EPOCHS):
         target_batch = target_batch.to(device)
 
         optimizer.zero_grad()
-        with torch.cuda.amp.autocast(enabled=use_amp):
+        with torch.amp.autocast(device_type="cuda" if use_amp else "cpu", enabled=use_amp):
             outputs = model(input_batch)
             loss = criterion(outputs.view(-1, VOCAB_SIZE), target_batch.view(-1))
 
@@ -86,12 +87,11 @@ for epoch in range(NUM_EPOCHS):
     avg_loss = total_loss / len(train_loader)
     print(f"Epoch {epoch+1}, Avg Loss: {avg_loss:.4f}")
 
-    # --- Checkpoint every 5 epochs ---
     if (epoch + 1) % 5 == 0:
-        checkpoint_path = f"llm-checkpoints/querycraft_llm_epoch{epoch+1}.pt"
+        checkpoint_path = f"llm-checkpoints/querycraft_llm_resume_epoch{epoch+1}.pt"
         torch.save(model.state_dict(), checkpoint_path)
         print(f"Checkpoint saved → {checkpoint_path}")
 
 # --- Final Model Save ---
-torch.save(model.state_dict(), "llms/querycraft_llm.pt")
-print("Final model saved successfully → llms/querycraft_llm.pt")
+torch.save(model.state_dict(), "llms/querycraft_llm_resume.pt")
+print("Final resumed model saved → llms/querycraft_llm_resume.pt")
