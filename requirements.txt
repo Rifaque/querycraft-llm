@@ -1,0 +1,17 @@
+# NOTE: torch is installed separately because of CUDA wheel selection.
+# NOTE: bitsandbytes may require Linux/WSL for GPU support; install separately as above.
+
+accelerate>=0.21.0
+transformers>=4.35.0
+datasets>=2.14.0
+peft
+safetensors
+tokenizers
+huggingface-hub
+sentencepiece
+tqdm
+numpy
+pandas
+rich
+fire
+wandb
