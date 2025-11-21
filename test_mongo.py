@@ -1,12 +1,12 @@
-# test1.py
+# test_mongo.py
 import torch
 import torch.nn.functional as F
 from model import TinyTransformer
 from config import EMBED_DIM, NUM_HEADS, NUM_LAYERS, MAX_SEQ_LEN
 import json
 
-# --- Load Vocabulary ---
-with open("vocab.json") as f:
+# --- Load Mongo Vocabulary ---
+with open("vocab_mongo.json") as f:
     vocab = json.load(f)  # word -> idx
 
 reverse_vocab = {int(idx): word for word, idx in vocab.items()}
@@ -15,7 +15,6 @@ VOCAB_SIZE = len(vocab)
 # --- Tokenizer / Detokenizer ---
 
 def tokenize(text: str):
-    # very simple whitespace tokenizer matching training
     return [vocab.get(word, 0) for word in text.lower().split()]
 
 def detokenize(tokens):
@@ -26,8 +25,7 @@ def detokenize(tokens):
         words.append(reverse_vocab.get(tok, "<unk>"))
     return " ".join(words)
 
-# --- Model Initialization ---
-
+# --- Load Mongo Transformer Model ---
 model = TinyTransformer(
     vocab_size=VOCAB_SIZE,
     embed_dim=EMBED_DIM,
@@ -35,25 +33,18 @@ model = TinyTransformer(
     num_layers=NUM_LAYERS,
     max_seq_len=MAX_SEQ_LEN,
 )
-model.load_state_dict(torch.load("llms/querycraft_llm.pt", map_location="cpu"))
+
+model.load_state_dict(torch.load("llms/querycraft_mongo_llm.pt", map_location="cpu"))
 model.eval()
 
 # --- Generation Function ---
 
-def generate_sql(full_prompt: str, max_gen_len: int = 80, temperature: float = 0.0):
-    """
-    Generate SQL for a given prompt.
-    `full_prompt` should already include the schema and question,
-    e.g.:
-    "Schema: transactions(id, user_id, amount, transaction_date, status)\nQuestion: Get MAX of amount grouped by user_id from transactions"
-    """
+def generate_mongo(full_prompt: str, max_gen_len: int = 80, temperature: float = 0.0):
     eos_token_id = vocab.get("<EOS>")
     sep_token_id = vocab.get("<SEP>")
 
-    # we always append <SEP> to separate prompt from target if it exists
-    prompt_text = full_prompt
-    if "<sep>" in vocab or "<SEP>" in vocab:
-        prompt_text = full_prompt + " <SEP>"
+    # Training format:   Schema: X\nQuestion: Y <SEP> <TARGET>
+    prompt_text = full_prompt + " <SEP>"
 
     input_ids = tokenize(prompt_text)
     prompt_len = len(input_ids)
@@ -68,41 +59,35 @@ def generate_sql(full_prompt: str, max_gen_len: int = 80, temperature: float = 0
 
         last_logits = logits[:, -1, :]
 
-        if temperature and temperature > 0.0:
+        if temperature > 0:
             last_logits = last_logits / temperature
             probs = F.softmax(last_logits, dim=-1)
-            next_token = torch.multinomial(probs, num_samples=1)
+            next_token = torch.multinomial(probs, 1)
         else:
-            # greedy
             next_token = torch.argmax(last_logits, dim=-1, keepdim=True)
 
-        tok_id = next_token.item()
+        tok = next_token.item()
 
-        # stop on EOS or SEP if present
-        if eos_token_id is not None and tok_id == eos_token_id:
+        if eos_token_id and tok == eos_token_id:
             break
-        if sep_token_id is not None and tok_id == sep_token_id:
+        if sep_token_id and tok == sep_token_id:
             break
 
         generated = torch.cat((generated, next_token), dim=1)
 
     output_tokens = generated[0, prompt_len:].tolist()
-    raw_text = detokenize(output_tokens)
+    raw = detokenize(output_tokens)
 
-    # Trim at first ";" if present – keep single SQL statement
-    semi_idx = raw_text.find(";")
-    if semi_idx != -1:
-        raw_text = raw_text[: semi_idx + 1]
+    return raw.strip()
 
-    return raw_text.strip()
-
+# --- Run Test ---
 if __name__ == "__main__":
-    # match the training prompt format
-    schema = "transactions(id, user_id, amount, transaction_date, status)"
-    question = "Get MAX of status grouped by transaction_date from transactions"
+    schema = "users(_id, name, email, registration_date, country, age, status)"
+    question = "Find documents in users where country equals 'IN'"
 
     prompt = f"Schema: {schema}\nQuestion: {question}"
-    sql_output = generate_sql(prompt, max_gen_len=80, temperature=0.0)
+
+    result = generate_mongo(prompt, temperature=0.0)
 
     print("Prompt:\n", prompt)
-    print("\nGenerated SQL:\n", sql_output)
+    print("\nGenerated MongoDB Query:\n", result)
