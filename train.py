@@ -15,7 +15,7 @@ from config import EMBED_DIM, NUM_HEADS, NUM_LAYERS, MAX_SEQ_LEN
 # -----------------------------
 DATA_PATH = "data/train_spider.json"   # <-- put your new JSON file here
 BATCH_SIZE = 32
-NUM_EPOCHS = 10
+NUM_EPOCHS = 2
 LR = 1e-4
 
 os.makedirs("llm-checkpoints", exist_ok=True)
@@ -79,7 +79,7 @@ class SQLDataset(Dataset):
         pr = example_to_prompt_response(ex)
 
         # Combine prompt + response like before
-        combined_text = pr["prompt"] + " <SEP> " + pr["response"] + " <EOS>"
+        combined_text = pr["prompt"] + " <sep> " + pr["response"] + " <eos>"
         token_ids = tokenize(combined_text)  # uses your tokenizer
 
         # Pad / truncate
