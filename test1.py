@@ -6,7 +6,7 @@ from model import TinyTransformer
 from config import EMBED_DIM, NUM_HEADS, NUM_LAYERS, MAX_SEQ_LEN
 
 # --- Load vocab ---
-with open("vocab.json") as f:
+with open("vocab.json", "r", encoding="utf-8") as f:
     vocab = json.load(f)
 
 reverse_vocab = {int(idx): word for word, idx in vocab.items()}

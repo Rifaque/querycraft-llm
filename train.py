@@ -15,7 +15,7 @@ from config import EMBED_DIM, NUM_HEADS, NUM_LAYERS, MAX_SEQ_LEN
 # -----------------------------
 DATA_PATH = "data/train_spider.json"   # <-- put your new JSON file here
 BATCH_SIZE = 32
-NUM_EPOCHS = 2
+NUM_EPOCHS = 20
 LR = 1e-4
 
 os.makedirs("llm-checkpoints", exist_ok=True)
