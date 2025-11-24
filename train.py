@@ -21,6 +21,48 @@ LR = 1e-4
 os.makedirs("llm-checkpoints", exist_ok=True)
 os.makedirs("llms", exist_ok=True)
 
+
+TABLES_PATH = "data/tables.json"  # adjust if needed
+
+
+def load_tables(path):
+    """
+    Load Spider-style tables.json and build a simple schema string per db_id.
+    Format of each schema string:
+      table1(col1:type, col2:type)
+      table2(col1:type, ...)
+    """
+    with open(path, "r", encoding="utf-8") as f:
+        tables = json.load(f)
+
+    by_db = {}
+    for t in tables:
+        db_id = t["db_id"]
+        table_names = t["table_names_original"]  # or "table_names"
+        columns = t["column_names_original"]     # list of [table_id, column_name]
+        column_types = t["column_types"]         # parallel list of types
+
+        cols_by_table = {i: [] for i in range(len(table_names))}
+        for (tbl_id, col_name), col_type in zip(columns, column_types):
+            if tbl_id == -1:  # special * entry in Spider
+                continue
+            cols_by_table[tbl_id].append(f"{col_name}:{col_type}")
+
+        lines = []
+        for i, tname in enumerate(table_names):
+            cols = cols_by_table[i]
+            if cols:
+                lines.append(f"{tname}(" + ", ".join(cols) + ")")
+            else:
+                lines.append(f"{tname}()")
+
+        by_db[db_id] = "\n".join(lines)
+
+    return by_db
+
+
+SCHEMAS_BY_DB = load_tables(TABLES_PATH)
+
 # -----------------------------
 # Data loading + conversion
 # -----------------------------
@@ -49,16 +91,22 @@ def example_to_prompt_response(ex):
     """
     Convert a Spider-style example into the old {prompt, response} format
     expected by tokenizer.build_vocab().
+    Now includes schema context.
     """
     db_id = ex.get("db_id", "unknown_db")
     question = ex["question"]
     sql_query = ex["query"]
 
-    # You can later enhance this to include schema context etc.
-    prompt = f"[DB={db_id}] {question}"
-    response = sql_query
+    schema_str = SCHEMAS_BY_DB.get(db_id, "")
 
+    if schema_str:
+        prompt = f"[DB={db_id}]\nSchema:\n{schema_str}\nQuestion: {question}"
+    else:
+        prompt = f"[DB={db_id}]\nQuestion: {question}"
+
+    response = sql_query
     return {"prompt": prompt, "response": response}
+
 
 
 # -----------------------------

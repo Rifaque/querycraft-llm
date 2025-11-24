@@ -83,7 +83,14 @@ if __name__ == "__main__":
     db_id = "department_management"
     question = "How many heads of the departments are older than 56 ?"
 
-    prompt = f"[DB={db_id}] {question}"
+    # minimal hand-written schema example
+    schema = (
+        "head(id, name, born_state, age)\n"
+        "department(id, name, creation, budget_in_billions)"
+    )
+
+    prompt = f"[DB={db_id}]\nSchema:\n{schema}\nQuestion: {question}"
+
     sql_output = generate_sql(prompt, max_gen_len=80, temperature=0.0)
 
     print("Prompt:\n", prompt)
