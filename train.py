@@ -153,6 +153,11 @@ class SQLDataset(Dataset):
 print("Loading raw data...")
 raw_data = load_spider_style_data(DATA_PATH)
 
+# 🔴 TEMP: only train on one DB to overfit & debug
+TARGET_DB = "department_management"
+raw_data = [ex for ex in raw_data if ex.get("db_id") == TARGET_DB]
+print(f"Filtered to db_id={TARGET_DB}, {len(raw_data)} examples")
+
 print("Converting to {prompt, response} for vocab building...")
 processed_for_vocab = [example_to_prompt_response(ex) for ex in raw_data]
 
